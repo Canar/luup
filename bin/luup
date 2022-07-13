@@ -1,0 +1,168 @@
+#!/usr/bin/env ruby
+require 'open3'
+require 'shellwords'
+require 'io/console'
+require 'pathname'
+require 'pulseaudio_simple_ffi'
+require 'pp'
+require 'readline'
+
+Pkg='luup'
+Ver='0.0.0'
+ConfigDir="#{Dir.home}/.config/#{Pkg}"
+Dir.mkdir(ConfigDir) unless File.directory?(ConfigDir)
+
+Channels,Rate,WordSize=2,44100,4
+FrameSize=Channels*WordSize # "frame" is all channels of a sample
+BytesPerSec=Rate*FrameSize
+FfmpegFmt="-ac #{Channels} -ar #{Rate} -f f#{WordSize*8}le"
+Quantum=24.0 # 24 FPS = cinematic
+
+def frame_round(x) = ( ( x.to_i / FrameSize ) * FrameSize ).to_i
+
+if ARGV.length==0
+  puts "Usage: #{Pkg} file"
+  exit 1
+end
+
+file=Pathname(ARGV[0]).realpath.to_s
+fn=Shellwords.escape(file)
+print "decoding #{file}..."
+ii,io,ie,it = Open3.popen3 "ffmpeg -loglevel -8 -i #{fn} #{FfmpegFmt} -"
+data=io.read.b
+#data=io.read(694200)
+it.join
+puts ' done'
+aubioquiet=`aubioquiet #{fn} | head -1 | cut -d\\  -f2`.to_f+5
+o=PulseAudioSimpleFFI::PulseAudioSimpleO.new(Pkg,file,channels:Channels,rate:Rate,device:@device)
+#puts data.class.to_s
+#o.write data[0..1024*1024-1]
+
+#exit 1
+
+mode=:play
+start_time=Time.now.to_f
+out_byte=0
+chunk_size=frame_round(BytesPerSec/Quantum/2)
+
+#old_off=aubioquiet
+#ordered by ~precedence
+old_dis='0'
+old_num='1'
+old_off='33.125'
+old_len='7.82'
+dis=old_dis.to_f
+num=old_num.to_f
+len=frame_round(old_len.to_f*BytesPerSec*num)
+off=(old_off.to_f*Rate).to_i*FrameSize + dis*old_len.to_f
+start_byte=off
+curr_byte=start_byte
+end_byte=off+len-1
+
+
+oot=Thread.new{
+  until :quit == mode
+    if curr_byte-1==end_byte
+      curr_byte=start_byte
+    elsif frame_round( curr_byte + chunk_size - end_byte+1)>0
+      extra_byte=frame_round(curr_byte + chunk_size - end_byte + 1)
+      extra_end_byte=frame_round(start_byte+extra_byte)-1
+      puts "#{curr_byte} #{end_byte} #{start_byte} #{extra_byte} #{extra_end_byte} #{chunk_size}"
+      o.write data[curr_byte .. end_byte]
+      o.write data[start_byte .. extra_end_byte]
+      curr_byte=extra_end_byte+1
+    else
+      o.write data[curr_byte .. curr_byte+chunk_size-1]
+      curr_byte+=chunk_size
+      out_byte+=chunk_size
+    end
+    #out_byte+=len
+    wrote_t,spent_t=out_byte.to_f/BytesPerSec,Time.now.to_f-start_time
+    #puts "#{wrote_t} in #{spent_t}"
+    if (wrote_t>spent_t)
+      sleep (wrote_t-spent_t)/Quantum
+    #else
+    #  puts "buffer underrun!"
+    end
+    #sleep len/2/BytesPerSec
+  end
+  o.close
+}
+
+def readline_hooked insert,prompt
+  Readline.pre_input_hook = -> do
+    Readline.insert_text insert
+    Readline.redisplay
+    Readline.pre_input_hook=nil
+  end
+  Readline.readline prompt
+end
+
+recalc=false
+until :quit == mode
+  d=end_byte-start_byte
+  c=curr_byte-start_byte
+  n=(c*256/d).to_i
+  #msg="%0.02f" % (curr_byte.to_f/BytesPerSec)
+  msg="%02X" % n
+  print "\r#{msg} l:#{old_len} o:#{old_off} n:#{old_num} d:#{old_dis}> "
+  case ch=IO.console.raw{|c|c.read_nonblock(1) rescue ''}.downcase
+
+  when 'q'
+    puts 'quit'
+    mode=:quit
+  when 'o'
+    new_off=readline_hooked(old_off,"o:")
+    if(new_off.to_f!=0)
+      off=frame_round(new_off.to_f*BytesPerSec)
+      old_off=new_off
+      recalc=true
+      puts
+    else
+      puts ' ID10T error.'
+    end
+  when 'l'
+    new_len=readline_hooked(old_len,"l:")
+    if(new_len.to_f>=5 and new_len.to_f<10)
+      len=frame_round(new_len.to_f*BytesPerSec*num)
+      old_len=new_len
+      recalc=true
+      puts
+    else
+      puts ' ID10T error.'
+    end
+  when 'n'
+    new_num=readline_hooked(old_num,"n:")
+    if(new_num.to_f>0)
+      num=new_num.to_f
+      len=frame_round(old_len.to_f*BytesPerSec*num)
+      old_num=new_num
+      recalc=true
+    end
+  when 'd'
+    s=-(old_off.to_f/old_len.to_f)
+    l=data.length/BytesPerSec
+    e=(l-old_off.to_f)/old_len.to_f
+    new_dis=readline_hooked(old_dis,"d=#{"%0.02f"%s}-#{"%0.02f"%e}:")
+    if(new_dis.to_f>=s && new_dis.to_f<=e)
+      dis=new_dis.to_f
+      old_dis=new_dis
+      off=(old_off.to_f*Rate).to_i*FrameSize + dis*(old_len.to_f*BytesPerSec)
+      recalc=true
+    end
+  when ''
+    sleep 1/Quantum
+  else
+    puts 'wtf'
+    #print (help="#{ch} < #{list_i>0?"[P]rev ":""}[R]estart [S]eek [N]ext [Q]uit")
+  end
+  if recalc
+    start_byte=off
+    curr_byte=start_byte
+    end_byte=off+len-1
+    recalc=false
+  end
+end
+
+puts "\r    ]  #{Pkg} ✝ v#{Ver}  [    "
+oot.join
