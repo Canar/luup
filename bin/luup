@@ -89,7 +89,7 @@ class Luup
   def off= x
     @off=x
     @off_f=x.to_f
-    @off_byte=(@off_f*Rate).to_i*FrameSize + frame_round(@dis_f*@len_byte)
+    @off_byte=(@off_f*Rate).to_i*FrameSize + frame_round(@dis_f*@len_byte/@num_f)
   end
 
   def dis= x
@@ -146,7 +146,7 @@ class Luup
         s=-(@off_f/@len_f)
         l=@data.length/BytesPerSec
         e=(l-@off_f)/@len_f
-        new_dis=readline_hooked(@dis,"d=#{"%0.02f"%s}-#{"%0.02f"%e}:")
+        new_dis=readline_hooked(@dis,"d=#{"%0.03f"%(s+0.0005)}-#{"%0.03f"%(e-0.0005)}:")
         if(new_dis.to_f>=s && new_dis.to_f<=e)
           self.dis=new_dis
           @curr_byte=start_byte
@@ -168,7 +168,7 @@ if ARGV.length==0
   exit 1
 end
 
-main=Luup.new(file=Pathname(ARGV[0]).realpath.to_s,'7.82','33.125')
+main=Luup.new(file=Pathname(ARGV[0]).realpath.to_s,'7.7948','33.125')
 data=main.data
 o=main.pulse
 main.main
