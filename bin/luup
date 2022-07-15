@@ -41,7 +41,6 @@ class Luup
     fn=Shellwords.escape(file)
     print "decoding #{file}..."
     @data,st = Open3.capture2("ffmpeg -loglevel -8 -i #{fn} #{FfmpegFmt} -",binmode:true)
-    puts ' done'
    
     self.num=num_p
     self.len=len_p
@@ -119,7 +118,7 @@ class Luup
       n=(c*256/d).to_i
       #msg="%0.02f" % (curr_byte.to_f/BytesPerSec)
       msg="%02X" % n
-      print "\r#{msg} l:#{@len} o:#{@off} n:#{@num} d:#{@dis}> "
+      print "\e[2K\r#{msg} l:#{@len} o:#{@off} n:#{@num} d:#{@dis}> "
       case ch=IO.console.raw{|c|c.read_nonblock(1) rescue ''}.downcase
       when 'q'
         @mode=:quit

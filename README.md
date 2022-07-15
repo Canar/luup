@@ -1,53 +1,14 @@
-# rumu
-
-***ru***by ***mu***sic\
+# luup
 *by Benjamin Cook*\
 <http://baryon.it>
 
 ## Abstract
 
-A minimalist audio player written in Ruby.\
-Pipes audio from `ffmpeg` into another `ffmpeg` or `PulseAudio`.\
-Plays a single, user-editable playlist gaplessly.\
-Remembers where it was when you quit.
+Beatgrid tracks and preview loop points on the console.
 
 ## Usage
-Create a rumu playlist and play it:\
-`        rumu file1 file2 ...`
-	
-Continue playing last created playlist:\
-`        rumu`
-
-Keystroke commands during playback:\
-**p**: previous track\
-**r**: restart current track\
-**s**: seek in current track\
-**n**: next track\
-**q**: quit rumu\
-**else**: display commands
-
-Seek accepts whatever `ffmpeg` does.\
-See <https://trac.ffmpeg.org/wiki/Seeking> for details.
 
 ## Features and Configuration
-
-`rumu` supports every input and output format that `ffmpeg` does.\
-Default configuration plays to the `default` Pulseaudio device.
-
-### Configuration files
-
-Configuration is found in `$HOME/.config/rumu`.
-
-`list` contains the playlist.
-
-`pos` contains position information.\
-Line 1 of `pos` is the position in `list`.\
-Line 2 of `pos` is the position in selected file in seconds.
-
-`out` contains output configuration.\
-Line 1 of `out` is `ffmpeg` or `pulse`.\
-For `ffmpeg`, line 2 is the output stanza, eg. `-f pulse default`\
-For `pulse`, line 2 is the audio device, eg. `default`
 
 ## Known Issues
 Timestamp is inaccurate.\
