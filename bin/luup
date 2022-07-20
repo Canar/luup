@@ -40,7 +40,13 @@ class Luup
   def initialize file,len_p,off_p='0',dis_p='0',num_p='1'
     fn=Shellwords.escape(file)
     print "decoding #{file}..."
-    @data,st = Open3.capture2("ffmpeg -loglevel -8 -i #{fn} #{FfmpegFmt} -",binmode:true)
+    i,o,t = Open3.popen2("ffmpeg -loglevel -8 -i #{fn} #{FfmpegFmt} -")
+    @data=''
+    until o.eof
+      @data+=o.read(1024*1024)
+      print '.'
+    end
+    #@data,st = Open3.capture2("ffmpeg -loglevel -8 -i #{fn} #{FfmpegFmt} -",binmode:true)
    
     self.num=num_p
     self.len=len_p
