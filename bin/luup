@@ -1,16 +1,18 @@
 #!/usr/bin/env ruby
+require 'io/console'
 require 'open3'
 require 'shellwords'
-require 'io/console'
 require 'pathname'
 require 'pulseaudio_simple_ffi'
 require 'pp'
 require 'readline'
 
 Pkg='luup'
-Ver='0.0.0'
+Ver='0.0.1'
 ConfigDir="#{Dir.home}/.config/#{Pkg}"
+TrackDir=ConfigDir+"/track"
 Dir.mkdir(ConfigDir) unless File.directory?(ConfigDir)
+Dir.mkdir(TrackDir) unless File.directory?(TrackDir)
 
 Channels,Rate,WordSize=2,44100,4
 FrameSize=Channels*WordSize # "frame" is all channels of a sample
@@ -31,6 +33,26 @@ def readline_hooked insert,prompt
   Readline.readline prompt
 end
 
+class LuupFile
+  def initialize fn
+    @fn=fn
+    @bytes=File.read(TrackDir+"/"+fn)
+    @lines=@bytes.split("\n")
+    @src=@lines[0].split("\t")
+    @tag=@lines[1].split("\t")
+    puts fn
+  end
+end
+
+class LuupDb
+  def initialize
+    @db=[]
+    Dir.each_child(TrackDir){|x|
+      @db.push(LuupFile.new(x))
+    }
+  end
+end
+
 class Luup
   attr_reader :data,:pulse,:start_time,:len,:off,:out,:mode
 
@@ -46,6 +68,9 @@ class Luup
       @data+=o.read(1024*1024)
       print '.'
     end
+    puts
+
+    #Termux doesn't like this:
     #@data,st = Open3.capture2("ffmpeg -loglevel -8 -i #{fn} #{FfmpegFmt} -",binmode:true)
    
     self.num=num_p
@@ -173,8 +198,6 @@ if ARGV.length==0
   exit 1
 end
 
-main=Luup.new(file=Pathname(ARGV[0]).realpath.to_s,'7.7948','33.125')
-data=main.data
-o=main.pulse
-main.main
+db=LuupDb.new
+Luup.new(file=Pathname(ARGV[0]).realpath.to_s,'7.7948','33.125').main
 

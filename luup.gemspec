@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
 	s.name         =  'luup'
-        s.version      =  '0.0.0'
+        s.version      =  '0.0.1'
         s.summary      =  'luup - a dj tool that loops music and finetunes beatgrids'
         s.description  =  s.summary
 	s.author       =  'Benjamin Cook'
