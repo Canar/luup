@@ -33,14 +33,42 @@ def readline_hooked insert,prompt
   Readline.readline prompt
 end
 
+# file dox
+# filename = shortname
+# 
+# filename [TAB] filename [TAB] filename, used in order of preference
+#	- URLs OK, only first filename implemented
+# tag [TAB] tag [TAB] etc
+# length (s) [TAB] offset (s) [TAB] n-segments per loop # d is displacement
+# expectedblocks
+#	- excluding header
+# 
+# \n\n
+# sequencemap
+# -3\t	intro
+# -1\t	fadein
+# 0\t	kick
+# 
+# \n\n
+# blockname
+# blockdata
+#
+# \n\n
+# blockname
+# blockdata
+
 class LuupFile
   def initialize fn
     @fn=fn
     @bytes=File.read(TrackDir+"/"+fn)
-    @lines=@bytes.split("\n")
-    @src=@lines[0].split("\t")
-    @tag=@lines[1].split("\t")
+    @blocks=@bytes.split "\n\n"
+    @lines=@blocks[0].split "\n"
+    @src=@lines[0].split "\t"
+    @tag=@lines[1].split "\t"
+    @len,@off,@mul=@lines[2].split "\t"
+	@numblox=@lines[3].to_i
     puts fn
+	pp self
   end
 end
 
@@ -193,11 +221,18 @@ class Luup
   end
 end
 
+#optparse
+# -a --add shortname filename
+# -l --length seconds
+# -o --offset seconds
+# -n --num loops
+# -s --show shows shortnames
 if ARGV.length==0
   puts "Usage: #{Pkg} file"
   exit 1
 end
 
 db=LuupDb.new
-Luup.new(file=Pathname(ARGV[0]).realpath.to_s,'7.7948','33.125').main
+Luup.new(file=Pathname(ARGV[0]).realpath.to_s,'7.7948').main
+#Luup.new(file=Pathname(ARGV[0]).realpath.to_s,'7.7948','33.125').main
 
